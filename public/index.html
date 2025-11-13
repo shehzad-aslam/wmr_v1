@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Watermark Remover (Minimal)</title>
+  <style>
+    body{font-family:system-ui,Arial;max-width:900px;margin:24px auto;padding:12px}
+    img{max-width:100%;height:auto;border:1px solid #ddd;padding:6px;background:#fff}
+    .row{display:flex;gap:16px}
+    .col{flex:1}
+    button{padding:8px 12px;margin-right:8px}
+    .hint{color:#666;font-size:13px}
+  </style>
+</head>
+<body>
+  <h1>Watermark Remover — Minimal (Vercel)</h1>
+  <p class="hint">Frontend is static. Image processing runs in serverless functions (detect & inpaint).</p>
+
+  <input id="file" type="file" accept="image/*"/><br/><br/>
+  <div>
+    <button id="detect">Detect Mask</button>
+    <button id="inpaint">Inpaint</button>
+    <button id="downloadResult">Download Result</button>
+  </div>
+
+  <div style="margin-top:12px" class="row">
+    <div class="col">
+      <h3>Original</h3>
+      <img id="orig" src="" alt="original"/>
+    </div>
+    <div class="col">
+      <h3>Mask</h3>
+      <img id="mask" src="" alt="mask"/>
+    </div>
+  </div>
+
+  <div style="margin-top:12px">
+    <h3>Result</h3>
+    <img id="result" src="" alt="result"/>
+  </div>
+
+<script>
+const fileEl = document.getElementById('file');
+const orig = document.getElementById('orig');
+const maskImg = document.getElementById('mask');
+const resultImg = document.getElementById('result');
+
+let currentFile=null;
+fileEl.addEventListener('change', e=>{
+  currentFile = e.target.files[0];
+  if(currentFile) orig.src = URL.createObjectURL(currentFile);
+});
+
+async function postForm(path, extra=null){
+  if(!currentFile) return alert('Choose a file first');
+  const fd = new FormData();
+  fd.append('image', currentFile, currentFile.name);
+  if(extra && extra.mask) fd.append('mask', extra.mask, 'mask.png');
+  const resp = await fetch(path, {method:'POST', body:fd});
+  if(!resp.ok) throw new Error('Server error '+resp.status);
+  const blob = await resp.blob();
+  return blob;
+}
+
+document.getElementById('detect').addEventListener('click', async ()=>{
+  try{
+    const b = await postForm('/api/detect-mask');
+    maskImg.src = URL.createObjectURL(b);
+  }catch(e){ alert(e.message) }
+});
+
+document.getElementById('inpaint').addEventListener('click', async ()=>{
+  try{
+    let maskBlob=null;
+    if(maskImg.src) {
+      const r = await fetch(maskImg.src);
+      maskBlob = await r.blob();
+    }
+    const b = await postForm('/api/inpaint', {mask: maskBlob});
+    resultImg.src = URL.createObjectURL(b);
+  }catch(e){ alert(e.message) }
+});
+
+document.getElementById('downloadResult').addEventListener('click', ()=>{
+  if(!resultImg.src) return alert('No result');
+  const a=document.createElement('a'); a.href=resultImg.src; a.download='result.png'; a.click();
+});
+</script>
+</body>
+</html>
