@@ -1,4 +1,0 @@
-flask==2.2.5
-opencv-python
-pillow
-numpy
